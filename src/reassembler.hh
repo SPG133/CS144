@@ -1,7 +1,7 @@
 #pragma once
 
 #include "byte_stream.hh"
-#include  <map>
+#include <map>
 class Reassembler
 {
 public:
@@ -39,12 +39,13 @@ public:
 
   // Access output stream writer, but const-only (can't write from outside)
   const Writer& writer() const { return output_.writer(); }
+  uint64_t get_next_id() { return next_id; }
 
 private:
   std::map<uint64_t, std::string> buffer;
   uint64_t next_id = 0;
-  ByteStream output_; 
+  ByteStream output_;
   uint64_t last_index = 0;
   bool last = false;
-  uint64_t sent = 0;// the Reassembler writes to this ByteStream
+  uint64_t sent = 0; // the Reassembler writes to this ByteStream
 };
