@@ -27,9 +27,8 @@ public:
 
 private:
   Reassembler reassembler_;
-  Wrap32  ISN  = Wrap32{0};
+  Wrap32 ISN = Wrap32 { 0 };
   uint64_t checkpoint = 0;
-  int start =0;
-  bool  restart = false; 
-
+  int start = 0;
+  bool restart = false;
 };

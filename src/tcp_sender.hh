@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <functional>
 #include <list>
+#include <map>
 #include <memory>
 #include <optional>
 #include <queue>
@@ -46,6 +47,12 @@ public:
 private:
   // Variables initialized in constructor
   ByteStream input_;
-  Wrap32 isn_;
+  Wrap32 isn_ = Wrap32 { 0 };
+  uint64_t string_start = 0;
+  uint64_t tcp_start = 0;
   uint64_t initial_RTO_ms_;
+  bool SYN_sent = false;
+  bool FIN_sent = false;
+  uint32_t window = 1;
+  std::map<TCPSenderMessage, uint64_t> messages;
 };
