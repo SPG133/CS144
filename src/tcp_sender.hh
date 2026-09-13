@@ -62,6 +62,7 @@ private:
   uint64_t initial_RTO_ms_;
   bool SYN_sent = false;
   bool FIN_sent = false;
+  bool testing = false;
   uint32_t window = 1;
   uint64_t ack_num = 0;
   uint64_t retransmit_times = 0;

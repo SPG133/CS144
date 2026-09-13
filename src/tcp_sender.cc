@@ -26,13 +26,10 @@ void TCPSender::push( const TransmitFunction& transmit )
   if ( window == 0 ) {
     return;
   }
-  uint32_t window_size = max<uint32_t>( 1, window );
-  const uint32_t fill_size = min<uint32_t>( window_size, TCPConfig::MAX_PAYLOAD_SIZE );
-  if ( str.size() == string_start ) {
-    str = "";
-  } else {
-    str = str.substr( string_start, min<uint32_t>( str.size(), fill_size ) );
-  }
+  /*if ( ( SYN_sent == false ) ) {
+    window--;
+  }*/
+  // uint64_t window_for_FIN = 0;
   bool SYN = false;
   bool FIN = false;
   bool RST = false;
@@ -40,12 +37,26 @@ void TCPSender::push( const TransmitFunction& transmit )
 
     SYN = true;
     SYN_sent = true;
+    //window -= 1;
+  }
+  uint32_t window_size = max<uint32_t>( 1, window );
+  const uint32_t fill_size = min<uint32_t>( window_size, TCPConfig::MAX_PAYLOAD_SIZE );
+  if ( str.size() == string_start ) {
+    str = "";
+  } else {
+    str = str.substr( string_start, min<uint32_t>( str.size(), fill_size ) );
   }
 
   if ( string_start + str.size() == length && ( reader().is_finished() || writer().is_closed() )
        && ( !FIN_sent ) ) {
+    //&& ( ( SYN + str.size() ) <= window ) ) {
     FIN = true;
   }
+  if ( FIN && str.size() == window ) {
+    FIN = false;
+  }
+
+  RST = input_.has_error();
 
   TCPSenderMessage message {
     .seqno = isn_.wrap( tcp_start, isn_ ),
@@ -78,7 +89,7 @@ TCPSenderMessage TCPSender::make_empty_message() const
     .SYN { false },
     .payload { "" },
     .FIN { false },
-    .RST { false },
+    .RST { input_.has_error() },
   };
 }
 
@@ -86,19 +97,24 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
 {
   // Your code here.
   uint64_t max_seqno = 0;
-
+  if ( msg.RST ) {
+    input_.set_error();
+  }
+  if ( !SYN_sent ) {
+    window = msg.window_size;
+  }
   for ( const auto& pair : messages ) {
     max_seqno = std::max( max_seqno, pair.first.seqno.unwrap( isn_, tcp_start ) + pair.first.sequence_length() );
   }
   if ( !msg.ackno || msg.ackno->unwrap( isn_, tcp_start ) <= ack_num
        || ( msg.ackno->unwrap( isn_, tcp_start ) > ( max_seqno ) ) ) {
     if ( msg.ackno->unwrap( isn_, tcp_start ) == ack_num ) {
-      window = msg.window_size;
+      window = msg.window_size + msg.ackno->unwrap( isn_, tcp_start ) - tcp_start;
     }
     return;
   } else {
     ack_num = msg.ackno->unwrap( isn_, tcp_start );
-    window = msg.window_size;
+    window = msg.window_size + msg.ackno->unwrap( isn_, tcp_start ) - tcp_start;
     retransmit_times = 0;
   }
   for ( auto it = messages.begin(); it != messages.end(); ) {
@@ -114,6 +130,14 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
     pair1.second.time = 0;
     pair1.second.RTO = initial_RTO_ms_;
   }
+  if ( sequence_numbers_in_flight() == 0 ) {
+    if ( window == 0 ) {
+      testing = true;
+    } else {
+      testing = false;
+    }
+    window = max<uint32_t>( window, 1 );
+  }
 }
 
 void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& transmit )
@@ -126,11 +150,15 @@ void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& trans
     pair.second.time += ms_since_last_tick;
     if ( pair.second.time >= pair.second.RTO ) {
       transmit( pair.first );
-      pair.second.send_times++;
-      retransmit_times++;
-      for ( auto& pair1 : messages ) {
-        pair1.second.time = 0;
-        pair1.second.RTO *= 2;
+      if ( !testing ) {
+        pair.second.send_times++;
+        retransmit_times++;
+        for ( auto& pair1 : messages ) {
+          pair1.second.time = 0;
+          pair1.second.RTO *= 2;
+        }
+      } else {
+        pair.second.time = 0;
       }
       return;
     }
