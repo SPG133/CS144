@@ -12,12 +12,21 @@
 #include <optional>
 #include <queue>
 
+class retransmission_timer
+{
+public:
+  retransmission_timer( uint64_t t, uint64_t r, uint64_t s_t ) : time( t ), RTO( r ), send_times( s_t ) {};
+  uint64_t time;
+  uint64_t RTO;
+  uint64_t send_times;
+};
+
 class TCPSender
 {
 public:
   /* Construct TCP sender with given default Retransmission Timeout and possible ISN */
   TCPSender( ByteStream&& input, Wrap32 isn, uint64_t initial_RTO_ms )
-    : input_( std::move( input ) ), isn_( isn ), initial_RTO_ms_( initial_RTO_ms )
+    : input_( std::move( input ) ), isn_( isn ), initial_RTO_ms_( initial_RTO_ms ), messages {}
   {}
 
   /* Generate an empty TCPSenderMessage */
@@ -54,5 +63,7 @@ private:
   bool SYN_sent = false;
   bool FIN_sent = false;
   uint32_t window = 1;
-  std::map<TCPSenderMessage, uint64_t> messages;
+  uint64_t ack_num = 0;
+  uint64_t retransmit_times = 0;
+  std::list<std::pair<TCPSenderMessage, retransmission_timer>> messages;
 };
