@@ -66,5 +66,6 @@ private:
   uint32_t window = 1;
   uint64_t ack_num = 0;
   uint64_t retransmit_times = 0;
+  bool window_set = false;
   std::list<std::pair<TCPSenderMessage, retransmission_timer>> messages;
 };

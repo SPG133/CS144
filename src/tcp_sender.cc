@@ -33,13 +33,17 @@ void TCPSender::push( const TransmitFunction& transmit )
   bool SYN = false;
   bool FIN = false;
   bool RST = false;
+  uint32_t window1 = window;
   if ( ( SYN_sent == false ) ) {
 
     SYN = true;
     SYN_sent = true;
-    //window -= 1;
+    // window -= 1;
+    if ( window_set ) {
+      window1--;
+    }
   }
-  uint32_t window_size = max<uint32_t>( 1, window );
+  uint32_t window_size = max<uint32_t>( 1, window1 );
   const uint32_t fill_size = min<uint32_t>( window_size, TCPConfig::MAX_PAYLOAD_SIZE );
   if ( str.size() == string_start ) {
     str = "";
@@ -52,7 +56,7 @@ void TCPSender::push( const TransmitFunction& transmit )
     //&& ( ( SYN + str.size() ) <= window ) ) {
     FIN = true;
   }
-  if ( FIN && str.size() == window ) {
+  if ( FIN && str.size() == window1 ) {
     FIN = false;
   }
 
@@ -102,6 +106,8 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
   }
   if ( !SYN_sent ) {
     window = msg.window_size;
+    window_set = 1;
+    return;
   }
   for ( const auto& pair : messages ) {
     max_seqno = std::max( max_seqno, pair.first.seqno.unwrap( isn_, tcp_start ) + pair.first.sequence_length() );
